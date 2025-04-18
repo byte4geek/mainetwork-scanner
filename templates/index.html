@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaiNetwork Scanner Dashboard</title>
+    <!-- MDI Font CDN -->
+    <link rel="stylesheet" href="https://cdn.materialdesignicons.com/7.1.96/css/materialdesignicons.min.css">
+    <style>
+        /* --- CSS Color Variables --- */
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --text-muted-color: #6c757d;
+            --primary-color: #007bff;
+            --header-bg: #e9ecef;
+            --header-text: #495057;
+            --table-bg: #fff;
+            --table-border: #dee2e6;
+            --row-even-bg: #f8f9fa;
+            --row-hover-bg: #e9ecef;
+            --link-color: #007bff;
+            --link-hover-color: #0056b3;
+            --input-bg: #fff;
+            --input-border: #ced4da;
+            --input-text: #495057;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --danger-hover-color: #c82333;
+            --known-yes-color: var(--primary-color);
+            --known-no-color: var(--text-muted-color);
+            --switch-bg-off: #ccc;
+            --switch-bg-on: var(--success-color);
+            --shadow-color: rgba(0,0,0,0.1);
+        }
+
+        /* --- Dark Theme --- */
+        body.dark-theme {
+            --bg-color: #212529;
+            --text-color: #dee2e6;
+            --text-muted-color: #adb5bd;
+            --primary-color: #4dabf7; /* Lighter blue */
+            --header-bg: #343a40;
+            --header-text: #f8f9fa;
+            --table-bg: #2c3034;
+            --table-border: #495057;
+            --row-even-bg: #343a40;
+            --row-hover-bg: #495057;
+            --link-color: #4dabf7;
+            --link-hover-color: #74c0fc;
+            --input-bg: #343a40;
+            --input-border: #495057;
+            --input-text: #f8f9fa;
+            --success-color: #37b24d;
+            --danger-color: #f06565;
+            --danger-hover-color: #e63946;
+            --known-yes-color: var(--primary-color);
+            --known-no-color: var(--text-muted-color);
+            --switch-bg-off: #6c757d;
+            --switch-bg-on: var(--success-color);
+            --shadow-color: rgba(255,255,255,0.05);
+        }
+
+        /* --- General Styles (using variables) --- */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px; font-size: 14px; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
+        h1 { color: var(--link-hover-color); border-bottom: 2px solid var(--table-border); padding-bottom: 10px; margin-bottom: 15px; display: flex; align-items: center; }
+        .logo-icon { font-size: 1.3em; width: 126px; height: 50px; margin-right: 10px; vertical-align: -4px; color: var(--primary-color); display: inline-block; }
+        table { border-collapse: collapse; width: 100%; margin-top: 5px; table-layout: fixed; background-color: var(--table-bg); box-shadow: 0 2px 4px var(--shadow-color); transition: background-color 0.3s, border-color 0.3s; }
+        th, td { border: 1px solid var(--table-border); padding: 6px 8px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; position: relative; transition: border-color 0.3s; }
+        th { background-color: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 1; white-space: normal; font-weight: 600; transition: background-color 0.3s, color 0.3s; }
+        #filter-row th { position: sticky; top: 35px; z-index: 1; background-color: var(--row-even-bg); } /* Adjusted top based on header height */
+        tr:nth-child(even) { background-color: var(--row-even-bg); transition: background-color 0.3s; }
+        tr:hover { background-color: var(--row-hover-bg); transition: background-color 0.1s; }
+        /* Status & Known */
+        .status-online { color: var(--success-color); font-weight: bold; } .status-offline { color: var(--danger-color); } .known-yes { color: var(--known-yes-color); } .known-no { color: var(--known-no-color); } .known-toggle { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; } .known-toggle:hover { background-color: var(--row-hover-bg); }
+        /* Delete Icon */
+        .delete-icon { cursor: pointer; color: var(--danger-color); font-size: 1.2em; vertical-align: middle; transition: color 0.2s ease-in-out; } .delete-icon:hover { color: var(--danger-hover-color); } td.action-cell { padding: 4px 8px; text-align: center; } th.action-cell-header { text-align: center; padding: 8px 4px; }
+        /* Controls */
+        #controls-container { display: flex; flex-wrap: wrap; align-items: center; margin-top: 15px; margin-bottom: 10px; gap: 15px; }
+        #last-updated { margin: 0; font-style: italic; color: var(--text-muted-color); font-size: 0.9em; }
+        .switch-container { display: inline-flex; align-items: center; gap: 8px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; } .switch input { opacity: 0; width: 0; height: 0; } .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--switch-bg-off); transition: .4s; border-radius: 24px; } .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; } input:checked + .slider { background-color: var(--switch-bg-on); } input:checked + .slider:before { transform: translateX(26px); } .switch-label { font-size: 0.9em; color: var(--header-text); cursor: pointer; transition: color 0.3s; }
+        /* Refresh Interval Input */
+        .refresh-interval-input-container { display: inline-flex; align-items: center; gap: 5px; font-size: 0.9em; color: var(--header-text); }
+        #refresh-interval-input { width: 50px; padding: 3px 5px; font-size: inherit; border: 1px solid var(--input-border); border-radius: 4px; background-color: var(--input-bg); color: var(--input-text); text-align: right; } #refresh-interval-input::-webkit-outer-spin-button, #refresh-interval-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } #refresh-interval-input[type=number] { -moz-appearance: textfield; }
+        /* Filters, Table Container, Editable */
+        .filter-input { width: 98%; padding: 5px; box-sizing: border-box; font-size: 12px; border: 1px solid var(--input-border); border-radius: 4px; background-color: var(--input-bg); color: var(--input-text); transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+        .table-container { overflow-x: auto; margin-top: 5px; max-width: 100%; border: 1px solid var(--table-border); border-radius: 5px; transition: border-color 0.3s; }
+        .editable-cell { cursor: text; min-width: 50px; } .editable-cell:hover { background-color: var(--row-hover-bg); } .inline-edit-input { width: 98%; padding: 4px; margin: -5px -9px; box-sizing: border-box; border: 1px solid var(--primary-color); font-family: inherit; font-size: inherit; position: relative; z-index: 2; background-color: var(--input-bg); color: var(--input-text); }
+        /* Resizing */
+        .resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; z-index: 2; } .resizing { /* Optional: border-right: 2px solid var(--primary-color); */ } #hosts-table th:last-child .resizer, #filter-row th .resizer { display: none; }
+    </style>
+</head>
+<body> <!-- Class set by JS -->
+	<h1>
+		<img src="{{ url_for('static', filename='logo.png') }}" alt="Scanner Logo" class="logo-icon">
+		MaiNetwork Scanner Dashboard
+	</h1>
+
+    <!-- Controls Container -->
+    <div id="controls-container">
+        <div id="last-updated">Updating...</div> <!-- ID="last-updated" -->
+        <!-- Auto Refresh Switch -->
+        <div class="switch-container">
+            <label class="switch">
+                <input type="checkbox" id="auto-refresh-checkbox"> <!-- ID="auto-refresh-checkbox" -->
+                <span class="slider"></span>
+            </label>
+            <span class="switch-label" onclick="document.getElementById('auto-refresh-checkbox').click();">
+                Auto Refresh
+            </span>
+        </div>
+         <!-- Refresh Interval Input -->
+         <div class="refresh-interval-input-container">
+            <label for="refresh-interval-input">every</label>
+            <input type="number" id="refresh-interval-input" min="5" value="10"> <!-- ID="refresh-interval-input" -->
+            <label for="refresh-interval-input">s</label>
+         </div>
+         <!-- Theme Switch -->
+         <div class="switch-container">
+            <label class="switch">
+                <input type="checkbox" id="theme-switch-checkbox"> <!-- ID="theme-switch-checkbox" -->
+                <span class="slider"></span>
+            </label>
+            <span class="switch-label" onclick="document.getElementById('theme-switch-checkbox').click();">
+                Dark Mode
+            </span>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table id="hosts-table"> <!-- ID="hosts-table" -->
+             <colgroup> <!-- Contains <col> elements -->
+                 <col id="col-0"><col id="col-1"><col id="col-2"><col id="col-3">
+                 <col id="col-4"><col id="col-5"><col id="col-6"><col id="col-7">
+                 <col id="col-8"><col id="col-9"><col id="col-10"><col id="col-11">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="action-cell-header resizable-th">Del<span class="resizer"></span></th>
+                    <th class="resizable-th">IP Address<span class="resizer"></span></th>
+                    <th class="resizable-th">MAC Address<span class="resizer"></span></th>
+                    <th class="resizable-th">Vendor<span class="resizer"></span></th>
+                    <th class="resizable-th">Hostname<span class="resizer"></span></th>
+                    <th class="resizable-th">Known<span class="resizer"></span></th>
+                    <th class="resizable-th">Status<span class="resizer"></span></th>
+                    <th class="resizable-th">Ports<span class="resizer"></span></th>
+                    <th class="resizable-th">Note<span class="resizer"></span></th>
+                    <th class="resizable-th">First Seen<span class="resizer"></span></th>
+                    <th class="resizable-th">Last Seen Online<span class="resizer"></span></th>
+                    <th class="resizable-th">Last Updated</th> <!-- No resizer -->
+                </tr>
+                <tr id="filter-row"> <!-- ID="filter-row" -->
+                    <th></th> <!-- Placeholder for action column -->
+                    <th><input type="text" id="filter-ip_address" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-mac_address" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-vendor" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-hostname" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-known_host" class="filter-input" placeholder="Y/N/1/0"></th>
+                    <th><input type="text" id="filter-status" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-ports" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-note" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-first_seen" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-last_seen_online" class="filter-input" placeholder="Filter..."></th>
+                    <th><input type="text" id="filter-last_updated" class="filter-input" placeholder="Filter..."></th>
+                </tr>
+            </thead>
+            <tbody> <!-- Contains table rows -->
+                <tr><td colspan="12">Loading data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
