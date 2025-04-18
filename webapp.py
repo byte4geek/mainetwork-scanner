@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 import logging
 
-# Configure base logging
+# Configure base logging 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load variables
