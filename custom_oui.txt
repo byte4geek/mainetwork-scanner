@@ -1,0 +1,10 @@
+# custom_oui.txt Example
+# Use OUI Prefixes (6 hex chars). Separators/case ignored.
+# Comments start with #
+
+AA-BB-CC    My Custom Vendor for AABBCC Devices
+001122      Another Custom Name (No Separators)
+AA:AA:AA    Proxmox Override (Custom)
+22:a6:2f	AVM Audiovisuelles Marketing und Computersysteme GmbH
+00:e0:f8	Floureon
+02:38:c5	Proxmox QEMU
