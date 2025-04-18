@@ -132,38 +132,38 @@ This project provides a Python-based network scanner that identifies hosts on a 
 9.  **Restart Services (if needed):**
     The setup script attempts to restart the services. If you made changes to `.env` or Python files *after* running the setup script, restart the relevant service(s):
     ```bash
-    sudo systemctl restart network_scanner      # Restart the scanner service
-    sudo systemctl restart network_scanner_web  # Restart the web app service
+    sudo systemctl restart mainetwork_scanner      # Restart the scanner service
+    sudo systemctl restart mainetwork_scanner_web  # Restart the web app service
     # sudo systemctl reload nginx              # Only needed if you manually edit Nginx config
     ```
 
 ## Usage
 
 *   **Access Web UI:** Open a web browser and navigate to `http://<your-server-ip>/`. You will be prompted for the username and password you created with `htpasswd`.
-*   **Scanner Service (`network_scanner`):** Runs in the background, performing ARP and (optionally) port scans at configured intervals, updating the database.
-*   **Web App Service (`network_scanner_web`):** Runs the Flask/Gunicorn application that serves the web UI and API.
+*   **Scanner Service (`mainetwork_scanner`):** Runs in the background, performing ARP and (optionally) port scans at configured intervals, updating the database.
+*   **Web App Service (`mainetwork_scanner_web`):** Runs the Flask/Gunicorn application that serves the web UI and API.
 *   **Manage Services:** Use standard `systemctl` commands:
-    *   `sudo systemctl status network_scanner network_scanner_web`
+    *   `sudo systemctl status mainetwork_scanner mainetwork_scanner_web`
     *   `sudo systemctl stop <service_name>`
     *   `sudo systemctl start <service_name>`
     *   `sudo systemctl restart <service_name>`
     *   `sudo systemctl enable <service_name>` (Already done by setup)
     *   `sudo systemctl disable <service_name>` (To prevent starting on boot)
 *   **View Logs:** Use `journalctl`:
-    *   Scanner logs: `sudo journalctl -u network_scanner -f`
-    *   Web app logs: `sudo journalctl -u network_scanner_web -f`
+    *   Scanner logs: `sudo journalctl -u mainetwork_scanner -f`
+    *   Web app logs: `sudo journalctl -u mainetwork_scanner_web -f`
 
 ## Security Considerations
 
 *   **HTTPS:** The HTTP Basic Authentication used sends credentials encoded but **not encrypted**. It is **highly recommended** to configure Nginx with an SSL/TLS certificate (e.g., using Let's Encrypt / Certbot) to enable HTTPS, protecting your login credentials.
 *   **`mysql_secure_installation`:** Running this script after MariaDB installation is crucial to set a root password and remove insecure defaults.
 *   **Firewall:** Ensure your firewall only allows necessary ports (e.g., port 80 for HTTP or 443 for HTTPS if configured). The Flask/Gunicorn port (5000) should typically *not* be exposed directly.
-*   **User Permissions:** While the scanner service requires root (for Scapy), consider if the web application service (`network_scanner_web`) could run as a less privileged user (like `www-data`) if file permissions in the project directory are adjusted accordingly. This requires careful permission management.
+*   **User Permissions:** While the scanner service requires root (for Scapy), consider if the web application service (`mainetwork_scanner_web`) could run as a less privileged user (like `www-data`) if file permissions in the project directory are adjusted accordingly. This requires careful permission management.
 
 ## Troubleshooting
 
-*   **Web UI "Loading data..." forever:** Check the browser's Developer Console (F12) for JavaScript errors. Check the Network tab to see if the `/api/hosts` request is failing. Check the web app logs (`journalctl -u network_scanner_web -f`) for backend errors.
-*   **Scanner service fails:** Check the scanner logs (`journalctl -u network_scanner -f`) for Python errors (e.g., DB connection, file access, Scapy issues). Verify `.env` settings.
+*   **Web UI "Loading data..." forever:** Check the browser's Developer Console (F12) for JavaScript errors. Check the Network tab to see if the `/api/hosts` request is failing. Check the web app logs (`journalctl -u mainetwork_scanner_web -f`) for backend errors.
+*   **Scanner service fails:** Check the scanner logs (`journalctl -u mainetwork_scanner -f`) for Python errors (e.g., DB connection, file access, Scapy issues). Verify `.env` settings.
 *   **Nginx errors / Welcome Page:** Ensure the default Nginx site is disabled (`sudo rm /etc/nginx/sites-enabled/default`) and your site config is linked correctly. Check Nginx syntax (`sudo nginx -t`) and reload (`sudo systemctl reload nginx`).
 *   **Permission Denied (DB):** Ensure the MariaDB user (`mainet`) has the correct `GRANT` privileges (SELECT, INSERT, UPDATE, DELETE) on the database, as set by the setup script.
 *   **Permission Denied (Files):** Ensure the user running the services has read access to necessary files (`.env`, Python scripts, OUI files) and write access to the `last_port_scan.ts` file within the `PROJECT_DIR`. The setup script attempts to set ownership, but manual adjustments might be needed depending on user context.
