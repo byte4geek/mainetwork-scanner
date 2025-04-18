@@ -53,7 +53,7 @@ This project provides a Python-based network scanner that identifies hosts on a 
     Before running the setup script, you might want to review and adjust variables at the top of `setup_environment.sh` and set DB password in `.env`.
     ```bash
     nano setup_environment.sh
-	nano .env (insert the password for mainet user in MariaDB at the line DB_PASSWORD=)
+	nano .env # (insert the password for mainet user in MariaDB at the line DB_PASSWORD=)
     ```
 
 3.  **Run the Setup Script:**
