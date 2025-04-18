@@ -45,6 +45,7 @@ This project provides a Python-based network scanner that identifies hosts on a 
 
 1.  **Clone the Repository:**
     ```bash
+    cd /opt
     git clone https://github.com/byte4geek/mainetwork-scanner.git
     cd mainetwork-scanner
     ```
