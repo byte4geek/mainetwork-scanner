@@ -45,7 +45,9 @@ This project provides a Python-based network scanner that identifies hosts on a 
 
 1.  **Clone the Repository:**
     ```bash
-    apt install git # if not already installed
+    apt update
+    apt upgrade -y
+    apt install git sudo # if not already installed
     cd /opt
     git clone https://github.com/byte4geek/mainetwork-scanner.git
     cd mainetwork-scanner
@@ -61,9 +63,6 @@ This project provides a Python-based network scanner that identifies hosts on a 
 3.  **Update & Run the Setup Script:**
     This script automates most of the installation process: installing system packages (MariaDB, Nginx, Python tools, etc.), setting up the database and user, creating the Python virtual environment, installing Python packages, creating systemd service files, and configuring Nginx.
     ```bash
-    apt update
-    apt upgrade -y
-    apt install sudo
     chmod +x setup_environment.sh
     sudo ./setup_environment.sh
     ```
