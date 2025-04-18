@@ -56,9 +56,12 @@ This project provides a Python-based network scanner that identifies hosts on a 
 	nano .env # (insert the password for mainet user in MariaDB at the line DB_PASSWORD=)
     ```
 
-3.  **Run the Setup Script:**
+3.  **Update & Run the Setup Script:**
     This script automates most of the installation process: installing system packages (MariaDB, Nginx, Python tools, etc.), setting up the database and user, creating the Python virtual environment, installing Python packages, creating systemd service files, and configuring Nginx.
     ```bash
+    apt update
+    apt upgrade -y
+    apt install sudo
     chmod +x setup_environment.sh
     sudo ./setup_environment.sh
     ```
