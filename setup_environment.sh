@@ -17,13 +17,13 @@ NC='\033[0m' # No Color
 # === Configurable Variables ===
 DB_NAME="network_scan_db"
 DB_USER="mainet"
-PROJECT_DIR="/opt/mainetwork"  # MODIFICA SE NECESSARIO (es. /opt/network-scanner)
+PROJECT_DIR="/opt/mainetwork-scanner"  # MODIFY IF NEEDED (es. /opt/network-scanner)
 VENV_NAME="scan_env"
 PYTHON_SCANNER_SCRIPT="network_scanner_db.py"
 WRAPPER_SCANNER_SCRIPT="run_scanner.sh"
 PYTHON_WEBAPP_SCRIPT="webapp.py"
-SERVICE_SCANNER="network_scanner"
-SERVICE_WEBAPP="network_scanner_web"
+SERVICE_SCANNER="mainetwork_scanner"
+SERVICE_WEBAPP="mainetwork_scanner_web"
 FLASK_PORT=5000
 # The MariaDB password will be asked
 
