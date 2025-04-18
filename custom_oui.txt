@@ -1,4 +1,4 @@
-# custom_oui.txt Example
+# custom_oui.txt Example 
 # Use OUI Prefixes (6 hex chars). Separators/case ignored.
 # Comments start with #
 
