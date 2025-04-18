@@ -1,6 +1,6 @@
 # Network Scanner with Web UI
 
-![logo](https://github.com/byte4geek/mainetwork-scanner/raw/main/mainetwork-scanner_logo.png)
+![logo](https://github.com/byte4geek/mainetwork-scanner/raw/main/mainetwork-scanner_logoB.png)
 
 This project provides a Python-based network scanner that identifies hosts on a local network using ARP scans, performs optional port scans, looks up MAC vendors (with custom overrides), and stores the results in a MariaDB database. It includes a Flask web application served via Gunicorn and Nginx, offering a dynamic dashboard to view and manage scanned hosts.
 
