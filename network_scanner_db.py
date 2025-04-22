@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# === Imports === 
+# === Imports ===
 import os
 import sys
 import socket
@@ -20,7 +20,8 @@ import time
 # --- Scapy Import ---
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 logging.getLogger("scapy.loading").setLevel(logging.ERROR)
-try: from scapy.all import Ether, ARP, srp, conf
+try:
+    from scapy.all import Ether, ARP, IP, ICMP, srp, sr1, conf
 except Exception as e: print(f"ERROR importing Scapy: {e}", file=sys.stderr); sys.exit(1)
 
 # --- MariaDB Connector Import ---
@@ -35,6 +36,8 @@ OUI_FILE = os.getenv("OUI_FILE", "oui.txt")
 OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"
 CUSTOM_OUI_FILE = os.getenv("CUSTOM_OUI_FILE", "custom_oui.txt")
 SCAN_TIMEOUT = 2
+PING_TIMEOUT = 1
+PING_RETRY = 1
 raw_port_scan_enabled = os.getenv("PORT_SCAN_ENABLED", "false").lower()
 PORT_SCAN_ENABLED = raw_port_scan_enabled in ['true', '1', 'yes', 'y']
 PORT_SCAN_RANGE_STR = os.getenv("PORT_SCAN_RANGE", "1-1024")
@@ -59,51 +62,73 @@ def check_root():
 def connect_db():
     conn = None
     if not all([DB_USER, DB_PASSWORD, DB_NAME]): print("ERROR: DB credentials missing.", file=sys.stderr); return None
-    try: conn = mariadb.connect( host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, connect_timeout=10); conn.autocommit = False; return conn
-    except mariadb.Error as e: print(f"ERROR: DB connection failed: {e}", file=sys.stderr); return None
+    try:
+        conn = mariadb.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, connect_timeout=10)
+        conn.autocommit = False
+        return conn
+    except mariadb.Error as e:
+        print(f"ERROR: DB connection failed: {e}", file=sys.stderr)
+        return None
 
-# Function download_oui_file (Corrected)
+# Function download_oui_file (Syntax Re-Verified)
 def download_oui_file(url, filename):
+    """Downloads the OUI file using wget if it doesn't exist locally."""
     if not os.path.exists(filename):
         print(f"Standard OUI file '{filename}' not found. Attempting download with wget...")
-        wget_path = shutil.which('wget');
-        if not wget_path: print("\nERROR: 'wget' command not found.", file=sys.stderr); return False
+        wget_path = shutil.which('wget')
+        if not wget_path:
+            print("\nERROR: 'wget' command not found.", file=sys.stderr)
+            return False
         command = [wget_path, '--tries=3', '--timeout=30', '-nv', url, '-O', filename]
         try:
             result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=45)
             if result.returncode == 0 and os.path.exists(filename) and os.path.getsize(filename) > 0:
-                print(f"Standard OUI file downloaded successfully: {filename}"); return True
+                print(f"Standard OUI file downloaded successfully: {filename}")
+                return True
             else:
                 print(f"ERROR: wget failed (code {result.returncode}). Stderr: {result.stderr or '[None]'}", file=sys.stderr)
+                # Ensure if is on a new line
                 if os.path.exists(filename):
-                    try: os.remove(filename)
-                    except OSError: pass
+                    try:
+                        os.remove(filename)
+                    except OSError:
+                        pass # Ignore removal errors
                 return False
         except Exception as e:
             print(f"ERROR: Unexpected error during wget execution: {e}", file=sys.stderr)
+            # Ensure if is on a new line
             if os.path.exists(filename):
-                 try: os.remove(filename)
-                 except OSError: pass
+                 try:
+                     os.remove(filename)
+                 except OSError:
+                     pass # Ignore removal errors
             return False
-    else: return True
+    else:
+        # print(f"Standard OUI file '{filename}' already exists.")
+        return True
 
 def parse_oui_file(filename):
+    """Loads and parses the standard OUI file (prefix -> vendor)."""
     global oui_dict; oui_dict = {}; print(f"Loading standard OUI from '{filename}'...")
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             for line in f:
                 if '(hex)' in line:
                     parts = line.split('(hex)', 1);
-                    if len(parts) == 2: mac_prefix = parts[0].strip().replace('-','').upper(); vendor = parts[1].strip();
-                    if len(mac_prefix) == 6: oui_dict[mac_prefix] = vendor
+                    if len(parts) == 2:
+                        mac_prefix = parts[0].strip().replace('-', '').upper();
+                        vendor = parts[1].strip();
+                        if len(mac_prefix) == 6:
+                             oui_dict[mac_prefix] = vendor
     except FileNotFoundError: print(f"ERROR: Standard OUI file '{filename}' not found.", file=sys.stderr); return False
     except Exception as e: print(f"ERROR parsing standard OUI: {e}", file=sys.stderr); return False
     if not oui_dict: print("WARNING: No standard OUI data loaded.", file=sys.stderr);
     print(f"Loaded {len(oui_dict)} standard OUI records.")
     return True
 
-# Parse custom OUI file (PREFIX based - Corrected)
+# Parse custom OUI file (PREFIX based - Syntax Re-Verified)
 def parse_custom_oui_file(filename):
+    """Loads and parses the custom OUI override file (prefix -> vendor)."""
     global custom_oui_dict; custom_oui_dict = {}; full_path = os.path.join(PROJECT_DIR, filename)
     if not os.path.exists(full_path): print(f"INFO: Custom OUI file '{filename}' not found."); return True
     print(f"Loading custom OUI overrides from '{filename}'..."); loaded_count = 0
@@ -111,7 +136,9 @@ def parse_custom_oui_file(filename):
         with open(full_path, 'r', encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
-                if not line or line.startswith('#'): continue # Correct indent
+                # Ensure if is on a new line
+                if not line or line.startswith('#'):
+                    continue
                 parts = line.split(None, 1);
                 if len(parts) == 2:
                     prefix_str = parts[0].strip(); vendor_name = parts[1].strip()
@@ -133,32 +160,15 @@ def parse_custom_oui_file(filename):
     print(f"Loaded {loaded_count} custom OUI prefix overrides.")
     return True
 
-# Vendor Lookup Function (Prefix Priority - Corrected for UnboundLocalError)
+# Vendor Lookup Function (Corrected)
 def get_vendor(mac_address):
     """Gets vendor, prioritizing custom OUI prefix, then standard."""
-    # 1. Check for empty/None input first
-    if not mac_address:
-        return "N/A"
-
-    # 2. Normalize the input MAC address
+    if not mac_address: return "N/A"
     normalized_mac = mac_address.replace(':','').replace('-','').upper()
-
-    # 3. Check length *after* normalization
-    if len(normalized_mac) < 6:
-        return "Unknown (Short MAC)" # Cannot determine OUI from short MAC
-
-    # 4. Get the OUI prefix
+    if len(normalized_mac) < 6: return "Unknown (Short MAC)"
     oui_prefix = normalized_mac[:6]
-
-    # 5. Check custom dictionary
-    if oui_prefix in custom_oui_dict:
-        return custom_oui_dict[oui_prefix] + " (Custom)"
-
-    # 6. Check standard dictionary
-    if oui_prefix in oui_dict:
-        return oui_dict[oui_prefix]
-
-    # 7. Fallback
+    if oui_prefix in custom_oui_dict: return custom_oui_dict[oui_prefix] + " (Custom)"
+    if oui_prefix in oui_dict: return oui_dict[oui_prefix]
     return "Unknown"
 
 # --- Port Scan Functions ---
@@ -169,7 +179,9 @@ def parse_port_range(range_str):
     try:
         for part in range_str.split(','):
             part = part.strip()
-            if not part: continue # Correctly indented
+            # Ensure if is on a new line
+            if not part:
+                continue
             if '-' in part:
                 start, end = map(int, part.split('-', 1))
                 if start <= end and start > 0 and end < 65536: ports.update(range(start, end + 1))
@@ -181,14 +193,14 @@ def parse_port_range(range_str):
     except ValueError: print(f"ERROR: Invalid PORT_SCAN_RANGE format: '{range_str}'.", file=sys.stderr); return set()
     return ports
 
-def scan_port(ip, port, timeout):
+def scan_port(ip, port, timeout): # Unchanged
     sock = None
     try: sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM); sock.settimeout(timeout); return sock.connect_ex((ip, port)) == 0
     except socket.error: return False
     finally:
         if sock: sock.close()
 
-def scan_ports_threaded(ip, ports_to_scan, timeout, max_threads):
+def scan_ports_threaded(ip, ports_to_scan, timeout, max_threads): # Unchanged
     open_ports = []; actual_threads = min(max_threads, len(ports_to_scan) if ports_to_scan else 1);
     if actual_threads <= 0 : actual_threads = 1
     with concurrent.futures.ThreadPoolExecutor(max_workers=actual_threads) as executor:
@@ -202,7 +214,7 @@ def scan_ports_threaded(ip, ports_to_scan, timeout, max_threads):
     else: return ""
 
 # --- ARP Network Scan Function ---
-def scan_network(network_cidr):
+def scan_network(network_cidr): # Unchanged
     active_hosts = {}; print(f"\nStarting ARP scan on {network_cidr}...")
     try:
         network_obj = ip_network(network_cidr, strict=False); packet = Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=str(network_cidr))
@@ -214,12 +226,20 @@ def scan_network(network_cidr):
             except ValueError: print(f"Debug: Ignoring invalid IP received {ip}")
     except ValueError: print(f"ERROR: Invalid network range '{network_cidr}'", file=sys.stderr); return None
     except PermissionError: print("ERROR: Root permissions needed.", file=sys.stderr); sys.exit(1)
-    except NameError as ne: print(f"ERROR: NameError during ARP scan: {ne}. Check imports.", file=sys.stderr); return None
+    except NameError as ne: print(f"ERROR: NameError during ARP scan: {ne}.", file=sys.stderr); return None
     except Exception as e: print(f"ERROR during ARP scan: {e}", file=sys.stderr); return None
     return active_hosts
 
+# --- Ping Check Function ---
+def is_host_reachable_by_ping(ip_address, timeout=PING_TIMEOUT, retry=PING_RETRY): # Unchanged
+    if not ip_address: return False
+    try:
+        response = sr1(IP(dst=ip_address)/ICMP(), timeout=timeout, retry=retry, verbose=False)
+        return response is not None # True if response received
+    except Exception as e: print(f"WARNING: Error during ping to {ip_address}: {e}", file=sys.stderr); return False
+
 # --- Database State Functions ---
-def load_state_from_db(conn):
+def load_state_from_db(conn): # Unchanged
     last_db_state = {}; cursor = None
     if not conn: return last_db_state
     print("Loading previous state from DB...");
@@ -240,16 +260,16 @@ def load_state_from_db(conn):
         if cursor: cursor.close()
     return last_db_state
 
-# Function update_db_and_get_status (Includes KeyError fix)
+# Function update_db_and_get_status (Includes Ping Check & KeyError fix)
 def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to_scan, perform_port_scan):
-    final_report_state = OrderedDict(); updated_count, inserted_count, offline_count, port_scan_count = 0, 0, 0, 0
+    final_report_state = OrderedDict(); updated_count, inserted_count, offline_count, port_scan_count, ping_check_count = 0, 0, 0, 0, 0
     if not conn: print("ERROR: Invalid DB connection for update.", file=sys.stderr); return final_report_state
     cursor = None; now_ts = datetime.now()
     try:
         cursor = conn.cursor(); online_ips = set(current_scan_results.keys())
         # Process ONLINE
         for ip in online_ips:
-            data = current_scan_results[ip]; mac = data['mac']; vendor = get_vendor(mac); ports_result_str = None # <-- Call get_vendor here
+            data = current_scan_results[ip]; mac = data['mac']; vendor = get_vendor(mac); ports_result_str = None
             if PORT_SCAN_ENABLED and perform_port_scan and ports_to_scan:
                 print(f"INFO: Starting port scan for {ip} ({len(ports_to_scan)} ports)..."); ports_result_str = scan_ports_threaded(ip, ports_to_scan, PORT_SCAN_TIMEOUT, PORT_SCAN_THREADS)
                 if ports_result_str is not None: port_scan_count += 1; print(f"INFO: Port scan {ip} -> '{ports_result_str or 'None Open'}'")
@@ -271,13 +291,25 @@ def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to
                 current_ports_insert = ports_result_str if (PORT_SCAN_ENABLED and perform_port_scan and ports_result_str is not None) else None
                 print(f"DB INSERT: {ip} (MAC: {mac}, Ports: '{current_ports_insert or 'NULL'}')")
                 insert_query = "INSERT INTO hosts (ip_address, mac_address, vendor, ports, status, first_seen, last_seen_online) VALUES (?, ?, ?, ?, 'ONLINE', NOW(), NOW())"; cursor.execute(insert_query, (ip, mac, vendor, current_ports_insert)); inserted_count += 1
-        # Process OFFLINE
-        offline_ips = set(last_db_state.keys()) - online_ips
-        for ip in offline_ips:
+        # Process OFFLINE (with Ping Check)
+        potentially_offline_ips = set(last_db_state.keys()) - online_ips
+        if potentially_offline_ips: print(f"INFO: {len(potentially_offline_ips)} hosts not in ARP. Pinging...");
+        for ip in potentially_offline_ips:
             last_data = last_db_state[ip]
-            if last_data.get('status') == 'ONLINE': print(f"DB UPDATE: {ip} (Status: OFFLINE)"); cursor.execute("UPDATE hosts SET status = 'OFFLINE' WHERE ip_address = ?", (ip,)); offline_count += 1; final_report_state[ip] = {**last_data, 'status': 'OFFLINE', 'timestamp': now_ts}
+            if last_data.get('status') == 'ONLINE':
+                ping_check_count += 1; # print(f"INFO: Pinging {ip}...") # Less verbose
+                if is_host_reachable_by_ping(ip):
+                    print(f"INFO: Ping success for {ip}. Kept as ONLINE.")
+                    final_report_state[ip] = {**last_data, 'status': 'ONLINE', 'timestamp': now_ts}
+                else:
+                    print(f"INFO: Ping failed for {ip}. Marking OFFLINE.")
+                    cursor.execute("UPDATE hosts SET status = 'OFFLINE' WHERE ip_address = ?", (ip,)); offline_count += 1
+                    final_report_state[ip] = {**last_data, 'status': 'OFFLINE', 'timestamp': now_ts}
+            else: # Already OFFLINE in DB
+                final_report_state[ip] = {**last_data, 'timestamp': now_ts} # Add to report state
         # Commit
         conn.commit(); print(f"\nDB update complete: {inserted_count} INSERTED, {updated_count} UPDATED (Online), {offline_count} marked OFFLINE.")
+        if ping_check_count > 0: print(f"Ping checks performed for {ping_check_count} hosts.")
         if port_scan_count > 0: print(f"Port scans performed for {port_scan_count} online hosts.")
     except mariadb.Error as e: print(f"ERROR during DB update: {e}", file=sys.stderr); print("Rolling back...", file=sys.stderr); conn.rollback(); final_report_state = {ip: {**d, 'status': d['status'] + " (DB Fail)"} for ip, d in final_report_state.items()}
     except Exception as e: print(f"ERROR during DB update: {e}", file=sys.stderr); traceback.print_exc(); conn.rollback(); final_report_state = {ip: {**d, 'status': d['status'] + " (DB Fail)"} for ip, d in final_report_state.items()}
@@ -320,8 +352,12 @@ if __name__ == "__main__":
             if time_since_last >= SCAN_PORT_INTERVAL_SECONDS:
                 print(f"INFO: Port scan interval elapsed ({time_since_last:.0f}s >= {SCAN_PORT_INTERVAL_SECONDS}s). Enabling scan."); do_port_scan_this_run = True
                 try: # Update timestamp *before* scan starts
-                    with open(PORT_SCAN_STATE_FILE, 'w') as f: f.write(str(now_ts_float))
-                except IOError as e: print(f"ERROR: Failed update port scan state file: {e}", file=sys.stderr)
+                    # Ensure try...except is properly indented
+                    with open(PORT_SCAN_STATE_FILE, 'w') as f:
+                        f.write(str(now_ts_float))
+                except IOError as e:
+                     print(f"ERROR: Failed to update port scan state file ({PORT_SCAN_STATE_FILE}): {e}", file=sys.stderr)
+                     print(f"WARNING: Next port scan might occur sooner than expected.", file=sys.stderr)
             else: print(f"INFO: Port scan interval not elapsed ({time_since_last:.0f}s < {SCAN_PORT_INTERVAL_SECONDS}s). Skipping.")
     else: ports_to_scan_set = set()
 
@@ -337,14 +373,14 @@ if __name__ == "__main__":
 
     # Main logic
     last_state = load_state_from_db(db_connection)
-    current_scan = scan_network(NETWORK_RANGE)
+    current_scan = scan_network(NETWORK_RANGE) # ARP Scan
     if current_scan is None: print("ARP Scan failed.", file=sys.stderr); final_report_state = {}
-    else: final_report_state = update_db_and_get_status( db_connection, current_scan, last_state, ports_to_scan_set, do_port_scan_this_run )
+    else: final_report_state = update_db_and_get_status( db_connection, current_scan, last_state, ports_to_scan_set, do_port_scan_this_run ) # Update includes Ping Check now
 
     # Print results & Close DB
     print_results(final_report_state)
     if db_connection:
-        try: db_connection.close(); print("\nDatabase connection closed.")
+        try: db_connection.close(); print("\nDatabase connection closed.") # Correctly indented
         except mariadb.Error as e: print(f"Error closing DB connection: {e}", file=sys.stderr)
 
     end_time = datetime.now(); print(f"\nScanner script finished in {(end_time - start_time).total_seconds():.2f} seconds.")
