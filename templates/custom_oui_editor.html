@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom OUI Editor</title>
+    <link rel="stylesheet" href="https://cdn.materialdesignicons.com/7.1.96/css/materialdesignicons.min.css">
+    <style>
+        /* --- CSS Color Variables (Same as index.html) --- */
+        :root {
+            --bg-color: #f8f9fa; --text-color: #333; --text-muted-color: #6c757d;
+            --primary-color: #007bff; --header-bg: #e9ecef; --header-text: #495057;
+            --table-bg: #fff; --table-border: #dee2e6; --row-even-bg: #f8f9fa;
+            --row-hover-bg: #e9ecef; --link-color: #007bff; --link-hover-color: #0056b3;
+            --input-bg: #fff; --input-border: #ced4da; --input-text: #495057;
+            --success-color: #28a745; --danger-color: #dc3545; --danger-hover-color: #c82333;
+            --known-yes-color: var(--primary-color); --known-no-color: var(--text-muted-color);
+            --switch-bg-off: #ccc; --switch-bg-on: var(--success-color);
+            --shadow-color: rgba(0,0,0,0.1);
+        }
+        /* --- Dark Theme (Same as index.html) --- */
+        body.dark-theme {
+            --bg-color: #212529; --text-color: #dee2e6; --text-muted-color: #adb5bd;
+            --primary-color: #4dabf7; --header-bg: #343a40; --header-text: #f8f9fa;
+            --table-bg: #2c3034; --table-border: #495057; --row-even-bg: #343a40;
+            --row-hover-bg: #495057; --link-color: #4dabf7; --link-hover-color: #74c0fc;
+            --input-bg: #343a40; --input-border: #495057; --input-text: #f8f9fa;
+            --success-color: #37b24d; --danger-color: #f06565; --danger-hover-color: #e63946;
+            --known-yes-color: var(--primary-color); --known-no-color: var(--text-muted-color);
+            --switch-bg-off: #6c757d; --switch-bg-on: var(--success-color);
+            --shadow-color: rgba(255,255,255,0.05);
+        }
+        /* --- General Styles (using variables) --- */
+        body { font-family: sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
+        h1 {
+            color: var(--link-hover-color);
+            border-bottom: 2px solid var(--table-border);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+		.logo-icon {
+            font-size: 1.3em;
+            margin-right: 10px;
+            vertical-align: -4px;
+            color: var(--primary-color);
+            display: inline-block;
+        }
+        textarea {
+            width: 98%; height: 60vh; margin-top: 15px; margin-bottom: 15px; padding: 10px;
+            border: 1px solid var(--input-border); border-radius: 5px; font-family: monospace;
+            font-size: 14px; line-height: 1.5; resize: vertical;
+            background-color: var(--input-bg); color: var(--input-text); /* Apply theme */
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        button { padding: 10px 20px; font-size: 1em; cursor: pointer; background-color: var(--success-color); color: white; border: none; border-radius: 5px; transition: background-color 0.2s; }
+        button:hover { background-color: #218838; } /* Consider using a variable? */
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #save-status { margin-top: 10px; font-weight: bold; height: 1.2em; /* Reserve space */ }
+        .status-success { color: var(--success-color); }
+        .status-error { color: var(--danger-color); }
+        .nav-link { margin-top: 20px; display: block; color: var(--link-color); text-decoration: none; }
+        .nav-link:hover { text-decoration: underline; color: var(--link-hover-color); }
+        .flash-messages { list-style: none; padding: 0; margin-bottom: 15px; }
+        .flash-messages li { padding: 10px 15px; margin-bottom: 10px; border-radius: 4px; border: 1px solid; }
+        .flash-messages li.info { background-color: #cfe2ff; color: #084298; border-color: #b6d4fe; }
+        .flash-messages li.error { background-color: #f8d7da; color: #842029; border-color: #f5c2c7; }
+        /* Dark theme specific adjustments for flash messages */
+        body.dark-theme .flash-messages li.info { background-color: #031633; color: #9ec5fe; border-color: #0a58ca; }
+        body.dark-theme .flash-messages li.error { background-color: #3a1115; color: #f5c2c7; border-color: #842029; }
+    </style>
+</head>
+<body> <!-- Theme class will be added by inline script -->
+	<h1>
+		<img src="{{ url_for('static', filename='logo.png') }}" alt="Scanner Logo" class="logo-icon">
+		MaiNetwork Scanner - Edit Custom OUI File (`{{ filename }}`)
+	</h1>
+    <!-- Display Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class=flash-messages>
+        {% for category, message in messages %}
+          <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <p>Enter OUI prefixes (6 hex characters, e.g., AA:BB:CC or AABBCC) followed by the desired Vendor Name, one per line. Lines starting with '#' are ignored.</p>
+
+    <textarea id="oui-content" spellcheck="false">{{ file_content }}</textarea>
+
+    <button id="save-oui-button">Save Changes</button>
+    <div id="save-status"></div>
+
+    <a href="{{ url_for('index') }}" class="nav-link">← Back to Dashboard</a>
+
+    <!-- JS specific to this editor page -->
+    <script src="{{ url_for('static', filename='custom_oui_editor.js') }}"></script>
+
+    <!-- ** NEW: Inline script to apply theme on load ** -->
+    <script>
+        // Simplified Cookie getter for theme only
+        function getThemeCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for(let i=0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0)==' ') c = c.substring(1,c.length);
+                if (c.indexOf(nameEQ) == 0) {
+                    try {
+                         // Theme is saved as a simple string 'dark' or 'light'
+                         return decodeURIComponent(c.substring(nameEQ.length,c.length));
+                    } catch (e) { return null; }
+                }
+            }
+            return null;
+        }
+
+        // Apply theme immediately on DOM load
+        (function() {
+            const themeCookieName = 'networkScannerTheme'; // Must match name used in script.js
+            const currentTheme = getThemeCookie(themeCookieName) || 'light'; // Default to light
+             console.log('Editor applying theme:', currentTheme); // Debug
+            if (currentTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.add('light-theme');
+            }
+        })();
+    </script>
+    <!-- ** END NEW SCRIPT ** -->
+
+</body>
+</html>
