@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Network Scanner Dashboard</title>
+	<link rel="icon" type="image/x-icon" href="/static/favicon.png">
     <!-- MDI Font CDN -->
     <link rel="stylesheet" href="https://cdn.materialdesignicons.com/7.1.96/css/materialdesignicons.min.css">
     <style>
@@ -134,7 +135,7 @@
         .status-offline { color: var(--danger-color); }
         /* Known switch is styled via .switch rules */
         td.known-cell { text-align: center; padding-top: 4px; padding-bottom: 4px; }
-        th.known-header { text-align: center; }
+        th.known-header { text-align: left; }
         /* Delete Icon */
         .delete-icon { cursor: pointer; color: var(--danger-color); font-size: 1.2em; vertical-align: middle; transition: color 0.2s ease-in-out; }
         .delete-icon:hover { color: var(--danger-hover-color); }
@@ -165,6 +166,50 @@
         /* Resizing */
         .resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; z-index: 2; }
         .resizing { /* Optional visual feedback */ }
+		
+		/* NEW: Style for Button-like Links */
+        .button-link {
+            display: inline-block; /* Make it behave like a button */
+            padding: 5px 10px;
+            font-size: 1em;
+            font-weight: normal; /* Reset font-weight if needed */
+            text-align: center;
+            text-decoration: none; /* Remove underline */
+            cursor: pointer;
+            /* background-color: var(--primary-color); /* Use primary blue */
+            background-color: var(--success-color);
+			color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.2s, color 0.2s;
+            margin-top: 1px; /* Add some top margin */
+        }
+        .button-link:hover {
+            background-color: { background-color: #218838; } /* Darker blue on hover */
+            color: white;
+            text-decoration: none; /* Ensure no underline on hover */
+        }
+        /* Specific style for Back button if needed, e.g., different color */
+        a.button {
+             background-color: var(--success-color); /* Use gray color like muted text */
+             color: white;
+        }
+         a.button:hover {
+             background-color: { background-color: #218838; }
+             color: white;
+        }
+		
+		/* Stile per il link nel footer */
+		.footer-link {
+			color: var(--text-muted-color);
+			text-decoration: none;
+			transition: color 0.2s;
+		}
+		.footer-link:hover {
+			color: var(--link-hover-color);
+			text-decoration: underline;
+		}
+
         #hosts-table th:last-child .resizer, #filter-row th .resizer { display: none; }
         /* Column Visibility Controls */
         #column-toggle-container { margin-top: 10px; padding: 10px; background-color: var(--header-bg); border: 1px solid var(--table-border); border-radius: 5px; font-size: 0.9em; transition: background-color 0.3s, border-color 0.3s; }
@@ -173,7 +218,6 @@
         #column-toggle-list li { display: inline-block; }
         .col-toggle-label { cursor: pointer; color: var(--text-color); transition: color 0.3s; }
         .col-toggle-label input { margin-right: 5px; vertical-align: -1px; }
-		/* Add this inside the <style> block in index.html */
         .nav-link { margin-top: 10px; display: inline-block; color: var(--link-color); text-decoration: none; font-size: 0.9em; }
         .nav-link:hover { text-decoration: underline; color: var(--link-hover-color); }
     </style>
@@ -181,7 +225,7 @@
 <body > <!-- Theme class (light-theme or dark-theme) added by JS -->
 	<h1>
 		<img src="{{ url_for('static', filename='logo.png') }}" alt="Scanner Logo" class="logo-icon">
-		MaiNetwork Scanner Dashboard
+		MaiNetwork Scanner - Dashboard
 	</h1>
 
     <!-- Controls Container -->
@@ -213,9 +257,13 @@
                 Dark Mode
             </span>
         </div>
-		    <!-- Link to Custom OUI Editor -->
-		<div style="margin-bottom: 9px;">
-			<a href="{{ url_for('custom_oui_editor') }}" class="nav-link">Edit Custom OUI File</a>
+				 <div>
+            <a href="{{ url_for('custom_oui_editor') }}" class="button-link button">Edit Custom OUI File
+            </a>
+		</div>
+		<div>
+			<a href="{{ url_for('history_page') }}" class="button-link button">View Host History
+            </a>
 		</div>
     </div>
 
@@ -257,7 +305,7 @@
                     <th data-col-index="2"><input type="text" id="filter-mac_address" class="filter-input" placeholder="Filter..."></th>
                     <th data-col-index="3"><input type="text" id="filter-vendor" class="filter-input" placeholder="Filter..."></th>
                     <th data-col-index="4"><input type="text" id="filter-hostname" class="filter-input" placeholder="Filter..."></th>
-                    <th data-col-index="5"><input type="text" id="filter-known_host" class="filter-input" placeholder="1 / 0"></th>
+                    <th data-col-index="5"><input type="text" id="filter-known_host" class="filter-input" placeholder="1/0 - yes/no"></th>
                     <th data-col-index="6"><input type="text" id="filter-status" class="filter-input" placeholder="Filter..."></th>
                     <th data-col-index="7"><input type="text" id="filter-ports" class="filter-input" placeholder="Filter..."></th>
                     <th data-col-index="8"><input type="text" id="filter-note" class="filter-input" placeholder="Filter..."></th>
@@ -274,5 +322,16 @@
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+	<!-- Footer Section -->
+	<footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--table-border); font-size: 0.9em; color: var(--text-muted-color);">
+    <p>
+        MaiNetwork Scanner - Developed with <span class="mdi mdi-heart" style="color: var(--danger-color); vertical-align: -2px;"></span> by byte4geek
+        |
+        <a href="https://github.com/byte4geek/mainetwork-scanner" target="_blank" rel="noopener noreferrer" class="footer-link">
+            <span class="mdi mdi-github" style="vertical-align: -3px;"></span> View on GitHub
+        </a>
+    </p>
+	</footer>
+<!-- End Footer Section -->
 </body>
 </html>
