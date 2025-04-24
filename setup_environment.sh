@@ -229,6 +229,25 @@ else
     log_info "Tabele 'hosts' created/verifyed/updated OK."
 fi
 
+# --- NEW: Create host_history table ---
+log_info "Creating 'host_history' table..."
+mysql ${DB_NAME} <<MYSQL_SCRIPT
+CREATE TABLE IF NOT EXISTS host_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,             -- Unique ID for each event
+    ip_address VARCHAR(45) NOT NULL,              -- The IP address of the host
+    status TINYINT(1) NOT NULL,                   -- 1 for ONLINE, 0 for OFFLINE
+    event_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- When the event occurred
+    INDEX idx_history_ip (ip_address),            -- Index on IP for lookups
+    INDEX idx_history_time (event_time)           -- Index on time for purging
+);
+MYSQL_SCRIPT
+if [ $? -ne 0 ]; then
+    log_error "Failed to create 'host_history' table."
+    exit 1
+fi
+log_info "'host_history' table created/verified OK."
+# --- END NEW ---
+
 # === Configuring Virtual Python env (Venv) ===
 log_step "Configuring Venv Python"
 if [ ! -d "$VENV_PATH" ]; then
@@ -267,48 +286,6 @@ else
     log_info "Python packages successfully installed in the venv."
 fi
 
-# === Creation of Script Wrapper Scanner ===
-log_step "Creation/Update Script Wrapper Scanner (${WRAPPER_SCANNER_SCRIPT})"
-cat > "$WRAPPER_SCANNER_PATH" << EOF
-#!/bin/bash
-SCRIPT_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-VENV_PATH="\$SCRIPT_DIR/${VENV_NAME}"
-PYTHON_SCRIPT="\$SCRIPT_DIR/${PYTHON_SCANNER_SCRIPT}"
-ENV_FILE="\$SCRIPT_DIR/.env"
-
-# Check file/dir
-if [ ! -f "\$ENV_FILE" ]; then echo "[$(date)] ERROR: .env missing."; exit 1; fi
-if [ ! -d "\$VENV_PATH" ]; then echo "[$(date)] ERROR: Venv missing."; exit 1; fi
-if [ ! -f "\$PYTHON_SCRIPT" ]; then echo "[$(date)] ERROR: Script Scanner Python missing."; exit 1; fi
-
-# Read SCAN_WAIT
-SCAN_WAIT=\$(grep '^SCAN_WAIT=' "\$ENV_FILE" | sed 's/#.*//' | cut -d'=' -f2 | xargs)
-if ! [[ "\$SCAN_WAIT" =~ ^[0-9]+$ ]] || [ "\$SCAN_WAIT" -le 0 ]; then
-    echo "[$(date)] WARN: SCAN_WAIT non valid in .env. Use default: 60s."
-    SCAN_WAIT=60
-fi
-echo "[$(date)] Interval Scanner: \$SCAN_WAIT s."
-
-# Activate Venv
-source "\$VENV_PATH/bin/activate"
-if [ \$? -ne 0 ]; then echo "[$(date)] ERROR: Activating Venv failed."; exit 1; fi
-echo "[$(date)] Venv activated for Scanner."
-
-# Loop execution
-while true; do
-    echo "[$(date)] Runnig Scanner: \$PYTHON_SCRIPT..."
-    python "\$PYTHON_SCRIPT" "\$@"
-    EXIT_CODE=\$?
-    echo "[$(date)] Scanner terminated (Code: \$EXIT_CODE)."
-    if [ \$EXIT_CODE -ne 0 ]; then
-        echo "[$(date)] ERROR Scanner (Code: \$EXIT_CODE). Wait extra 30s."
-        sleep 30
-    fi
-    echo "[$(date)] Waiting \$SCAN_WAIT s..."
-    sleep "\$SCAN_WAIT"
-done
-EOF
-
 chmod +x "$WRAPPER_SCANNER_PATH"
 chown "$CALLING_USER":"$CALLING_USER" "$WRAPPER_SCANNER_PATH"
 log_info "Created/Updated wrapper scanner: $WRAPPER_SCANNER_PATH"
@@ -328,8 +305,8 @@ server {
 
     location / {
         # HTTP Base Authentication
-        auth_basic "Network Scanner login";
-        auth_basic_user_file /etc/nginx/.htpasswd;
+        # auth_basic "MaiNetwork Scanner login";
+        # auth_basic_user_file /etc/nginx/.htpasswd;
 
         # Proxy vs Gunicorn/Flask
         proxy_pass http://127.0.0.1:${FLASK_PORT};
@@ -471,6 +448,7 @@ NETWORK_RANGE=192.168.1.0/24
 LOG_FILE=network_scan_log.txt
 OUI_FILE=oui.txt
 SCAN_WAIT=15
+FLASK_SECRET_KEY=YOUR_STRONG_RANDOM_FLASK_KEY # <-- Set a real secret key!
 
 # --- Custom OUI Settings ---
 CUSTOM_OUI_FILE=custom_oui.txt
@@ -488,6 +466,7 @@ DB_PORT=3306
 DB_USER=mainet
 DB_PASSWORD=${DB_PASSWORD} # <-- The password you have chosen!
 DB_NAME=network_scan_db
+PURGE_HISTORY_DAYS=30 # NEW: Set to 0 or negative to disable history purge
 EOF
 
 echo -e "${NC}"
