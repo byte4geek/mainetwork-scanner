@@ -1,7 +1,7 @@
 // ==================================================
 // static/script.js - COMPLETE, VERIFIED & READABLE (v12 - EN)
 // Includes: Filters, Known Switch, Delete, Inline Edit, Theme Toggle,
-//           Refresh Toggle/Interval, Col Resizing, Col Visibility
+// Refresh Toggle/Interval, Col Resizing, Col Visibility
 // ==================================================
 
 // --- Global Variables & Constants ---
