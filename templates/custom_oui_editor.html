@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom OUI Editor</title>
+    <title>MNS Custom OUI Editor</title>
+	<link rel="icon" type="image/x-icon" href="/static/favicon.png">
     <link rel="stylesheet" href="https://cdn.materialdesignicons.com/7.1.96/css/materialdesignicons.min.css">
     <style>
         /* --- CSS Color Variables (Same as index.html) --- */
@@ -18,7 +19,8 @@
             --switch-bg-off: #ccc; --switch-bg-on: var(--success-color);
             --shadow-color: rgba(0,0,0,0.1);
         }
-        /* --- Dark Theme (Same as index.html) --- */
+        
+		/* --- Dark Theme (Same as index.html) --- */
         body.dark-theme {
             --bg-color: #212529; --text-color: #dee2e6; --text-muted-color: #adb5bd;
             --primary-color: #4dabf7; --header-bg: #343a40; --header-text: #f8f9fa;
@@ -30,7 +32,8 @@
             --switch-bg-off: #6c757d; --switch-bg-on: var(--success-color);
             --shadow-color: rgba(255,255,255,0.05);
         }
-        /* --- General Styles (using variables) --- */
+        
+		/* --- General Styles (using variables) --- */
         body { font-family: sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
         h1 {
             color: var(--link-hover-color);
@@ -40,6 +43,7 @@
             display: flex;
             align-items: center;
         }
+		
 		.logo-icon {
             font-size: 1.3em;
             margin-right: 10px;
@@ -47,16 +51,73 @@
             color: var(--primary-color);
             display: inline-block;
         }
-        textarea {
+        
+		textarea {
             width: 98%; height: 60vh; margin-top: 15px; margin-bottom: 15px; padding: 10px;
             border: 1px solid var(--input-border); border-radius: 5px; font-family: monospace;
             font-size: 14px; line-height: 1.5; resize: vertical;
             background-color: var(--input-bg); color: var(--input-text); /* Apply theme */
             transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
-        button { padding: 10px 20px; font-size: 1em; cursor: pointer; background-color: var(--success-color); color: white; border: none; border-radius: 5px; transition: background-color 0.2s; }
-        button:hover { background-color: #218838; } /* Consider using a variable? */
+        
+		button {
+			padding: 5px 10px;
+			font-size: 0.9em;
+			cursor: pointer;
+			background-color: var(--success-color);
+			color: white;
+			border: none;
+			border-radius: 5px;
+			transition: background-color 0.2s;
+		}
+        
+		button:hover { background-color: #218838; } /* Consider using a variable? */
         button:disabled { background-color: #ccc; cursor: not-allowed; }
+		
+		/* NEW: Style for Button-like Links */
+        .button-link {
+            display: inline-block; /* Make it behave like a button */
+            padding: 5px 10px;
+            font-size: 0.9em;
+            font-weight: normal; /* Reset font-weight if needed */
+            text-align: center;
+            text-decoration: none; /* Remove underline */
+            cursor: pointer;
+            /* background-color: var(--primary-color); /* Use primary blue */
+            background-color: var(--success-color);
+			color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.2s, color 0.2s;
+            margin-top: 1px; /* Add some top margin */
+        }
+        .button-link:hover {
+            background-color: { background-color: #218838; } /* Darker blue on hover */
+            color: white;
+            text-decoration: none; /* Ensure no underline on hover */
+        }
+        
+		/* Specific style for Back button if needed, e.g., different color */
+        a.back-button {
+             background-color: var(--success-color); /* Use gray color like muted text */
+             color: white;
+        }
+         a.back-button:hover {
+             background-color: { background-color: #218838; }
+             color: white;
+        }
+		
+				/* Stile per il link nel footer */
+		.footer-link {
+			color: var(--text-muted-color); /* Usa colore testo muto */
+			text-decoration: none;
+			transition: color 0.2s;
+		}
+		.footer-link:hover {
+			color: var(--link-hover-color); /* Cambia colore link su hover */
+			text-decoration: underline;
+		}
+		
         #save-status { margin-top: 10px; font-weight: bold; height: 1.2em; /* Reserve space */ }
         .status-success { color: var(--success-color); }
         .status-error { color: var(--danger-color); }
@@ -93,8 +154,13 @@
 
     <button id="save-oui-button">Save Changes</button>
     <div id="save-status"></div>
-
-    <a href="{{ url_for('index') }}" class="nav-link">← Back to Dashboard</a>
+	
+	<div>
+		<!-- MODIFIED Link: Added class="button-link back-button" -->
+        <a href="{{ url_for('index') }}" class="button-link back-button">
+        <span class="mdi mdi-arrow-left"></span> Back to Dashboard <!-- Added icon -->
+        </a>
+	</div>
 
     <!-- JS specific to this editor page -->
     <script src="{{ url_for('static', filename='custom_oui_editor.js') }}"></script>
@@ -131,6 +197,14 @@
         })();
     </script>
     <!-- ** END NEW SCRIPT ** -->
-
+	<footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--table-border); font-size: 0.9em; color: var(--text-muted-color);">
+    <p>
+        MaiNetwork Scanner - Developed with <span class="mdi mdi-heart" style="color: var(--danger-color); vertical-align: -2px;"></span> by byte4geek
+        |
+        <a href="https://github.com/byte4geek/mainetwork-scanner" target="_blank" rel="noopener noreferrer" class="footer-link">
+            <span class="mdi mdi-github" style="vertical-align: -3px;"></span> View on GitHub
+        </a>
+    </p>
+	</footer>
 </body>
 </html>
