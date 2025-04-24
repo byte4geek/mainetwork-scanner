@@ -76,7 +76,7 @@ This project provides a Python-based network scanner that identifies hosts on a 
     sudo mysql_secure_installation
     ```
 
-5.  **Create Web Access User:**
+5.  **Create Web Access User: (optional)**
     The web interface is protected by HTTP Basic Authentication managed by Nginx. You need to create at least one user for access using the `htpasswd` command (installed by `apache2-utils` via the setup script).
     *   **For the first user:** (Replace `<choose_a_username>`)
         ```bash
@@ -92,7 +92,12 @@ This project provides a Python-based network scanner that identifies hosts on a 
         sudo chown root:www-data /etc/nginx/.htpasswd
         sudo chmod 640 /etc/nginx/.htpasswd
         ```
-
+    *   **Uncomment the option in Nginx config file:**
+        ```bash
+        nano /etc/nginx/sites-available/mainetwork_scanner_web
+        ```
+        Uncomment: `# auth_basic "MaiNetwork Scanner login";` and `# auth_basic_user_file /etc/nginx/.htpasswd;` and restart the Nginx service `sudo systemctl reload nginx`
+ 
 6.  **Place Project Files:** Ensure the Python scripts (`network_scanner_db.py`, `webapp.py`), the wrapper (`run_scanner.sh`), and the web directories (`templates/index.html`, `static/script.js`) are correctly placed in the `INSTALLATION_DIR` (ex: `/opt/mainetwork-scanner`). Cloning the repository should handle this.
 
 7.  **Configure Environment Variables:**
