@@ -112,7 +112,8 @@ This project provides a Python-based network scanner that identifies hosts on a 
     NETWORK_RANGE=192.168.1.0/24 # ADJUST TO YOUR NETWORK
     OUI_FILE=oui.txt
     SCAN_WAIT=60                 # Main scan interval (seconds)
-
+    FLASK_SECRET_KEY=YOUR_STRONG_RANDOM_FLASK_KEY # <-- Set a real secret key!
+    
     # Port Scan Settings
     PORT_SCAN_ENABLED=true       # Enable/disable port scanning
     PORT_SCAN_RANGE="1-1024"     # Ports/ranges to scan (e.g., "22,80,443,1000-2000")
@@ -123,12 +124,16 @@ This project provides a Python-based network scanner that identifies hosts on a 
     # Custom OUI
     CUSTOM_OUI_FILE=custom_oui.txt # Optional custom OUI definitions
 
+    # --- Output Settings ---
+    LOG_LEVEL=CRITICAL  # NEW: Set minimum log level. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+
     # Database Credentials
     DB_HOST=localhost
     DB_PORT=3306
     DB_USER=mainet
     DB_PASSWORD=YOUR_MARIADB_PASSWORD # !!! REPLACE WITH THE PASSWORD YOU SET !!!
     DB_NAME=network_scan_db
+    PURGE_HISTORY_HOURS=72 # NEW: Purge records older than X hours (es. 72 hours = 3 days)
     ```
 
 8.  **Configure Custom OUI (Optional):**
