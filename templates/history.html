@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNS Host History</title>
+	<link rel="icon" type="image/x-icon" href="/static/favicon.png">
+    <link rel="stylesheet" href="https://cdn.materialdesignicons.com/7.1.96/css/materialdesignicons.min.css">
+    <style>
+        /* --- CSS Color Variables --- */
+        :root {
+            --bg-color: #f8f9fa; --text-color: #333; --text-muted-color: #6c757d;
+            --primary-color: #007bff; --header-bg: #e9ecef; --header-text: #495057;
+            --table-bg: #fff; --table-border: #dee2e6; --row-even-bg: #f8f9fa;
+            --row-hover-bg: #e9ecef; --link-color: #007bff; --link-hover-color: #0056b3;
+            --input-bg: #fff; --input-border: #ced4da; --input-text: #495057;
+            --success-color: #28a745; --danger-color: #dc3545; --danger-hover-color: #c82333;
+            --known-yes-color: var(--primary-color); --known-no-color: var(--text-muted-color);
+            --switch-bg-off: #ccc; --switch-bg-on: var(--success-color);
+            --shadow-color: rgba(0,0,0,0.1);
+        }
+        /* --- Dark Theme --- */
+        body.dark-theme {
+            --bg-color: #212529; --text-color: #dee2e6; --text-muted-color: #adb5bd;
+            --primary-color: #4dabf7; --header-bg: #343a40; --header-text: #f8f9fa;
+            --table-bg: #2c3034; --table-border: #495057; --row-even-bg: #343a40;
+            --row-hover-bg: #495057; --link-color: #4dabf7; --link-hover-color: #74c0fc;
+            --input-bg: #343a40; --input-border: #495057; --input-text: #f8f9fa;
+            --success-color: #37b24d; --danger-color: #f06565; --danger-hover-color: #e63946;
+            --known-yes-color: var(--primary-color); --known-no-color: var(--text-muted-color);
+            --switch-bg-off: #6c757d; --switch-bg-on: var(--success-color);
+            --shadow-color: rgba(255,255,255,0.05);
+        }
+        
+		/* --- General & Page Specific Styles --- */
+        body { 
+			font-family: sans-serif;
+			margin: 20px;
+			background-color: var(--bg-color);
+			color: var(--text-color);
+			transition: background-color 0.3s, color 0.3s;
+		}
+        
+		h1 {
+			color: var(--link-hover-color);
+			border-bottom: 2px solid var(--table-border);
+			padding-bottom: 10px;
+		}
+        
+		.logo-icon {
+            font-size: 1.3em;
+            margin-right: 10px;
+            vertical-align: -4px;
+            color: var(--primary-color);
+            display: inline-block;
+        }
+		
+		.filter-container { 
+			margin: 15px 0;
+			padding: 10px;
+			background-color: var(--header-bg);
+			border: 1px solid var(--table-border);
+			border-radius: 5px;
+			display: flex;
+			gap: 15px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+		
+        .filter-container label {
+			margin-right: 5px;
+			color: var(--header-text);
+			font-weight: bold;
+		}
+        .filter-input { 
+			padding: 5px;
+			border: 1px solid var(--input-border);
+			border-radius: 4px;
+			background-color: var(--input-bg);
+			color: var(--input-text);
+		}
+		
+        #controls-container { 
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			margin-top: 15px;
+			margin-bottom: 10px;
+			gap: 15px;
+		}
+        
+		#last-updated { 
+			margin: 0;
+			font-style: italic;
+			color: var(--text-muted-color);
+			font-size: 0.9em;
+		}
+		
+        /* Switch Styles */
+        .switch-container { 
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+		}
+		
+        .switch { 
+			position: relative;
+			display: inline-block;
+			width: 50px;
+			height: 24px;
+		}
+		
+		.switch input { 
+			opacity: 0;
+			width: 0;
+			height: 0;
+		}
+		
+		.slider { 
+			position: absolute;
+			cursor: pointer;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background-color: var(--switch-bg-off);
+			transition: .4s;
+			border-radius: 24px;
+		}
+		
+		.slider:before { 
+			position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; } input:checked + .slider { background-color: var(--switch-bg-on); } input:checked + .slider:before { transform: translateX(26px); } .switch-label { font-size: 0.9em; color: var(--header-text); cursor: pointer; transition: color 0.3s;
+		}
+        
+		/* Refresh Input Styles */
+        .refresh-interval-input-container {
+			display: inline-flex; align-items: center; gap: 5px; font-size: 0.9em; color: var(--header-text);
+		}
+        
+		#refresh-interval-input {
+			width: 50px; padding: 3px 5px; font-size: inherit; border: 1px solid var(--input-border); border-radius: 4px; background-color: var(--input-bg); color: var(--input-text); text-align: right; } #refresh-interval-input::-webkit-outer-spin-button, #refresh-interval-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } #refresh-interval-input[type=number] { -moz-appearance: textfield; }
+        
+		/* Table Styles */
+        .table-container {
+			overflow-x: auto; margin-top: 5px; max-width: 100%; border: 1px solid var(--table-border); border-radius: 5px; transition: border-color 0.3s; background-color: var(--table-bg); box-shadow: 0 2px 4px var(--shadow-color);
+		}
+        
+		table { 
+			border-collapse: collapse; width: 100%; table-layout: fixed;
+		}
+        
+		th, td { 
+			border: 1px solid var(--table-border); padding: 6px 10px; text-align: left; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color 0.3s;
+		}
+        
+		th { 
+			background-color: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 1; white-space: normal; font-weight: 600; transition: background-color 0.3s, color 0.3s;
+		}
+        
+		tr:nth-child(even) { 
+			background-color: var(--row-even-bg); transition: background-color 0.3s;
+		}
+        
+		tr:hover { 
+			background-color: var(--row-hover-bg); transition: background-color 0.1s;
+		}
+        
+		/* Action Cell Styles (for Delete) */
+        td.action-cell { 
+			padding: 4px 8px; 
+			text-align: center;
+		}
+        
+		th.action-cell-header { 
+			text-align: center;
+			padding: 8px 4px;
+		}
+
+        .delete-icon { 
+			cursor: pointer;
+			color: var(--danger-color); 
+			font-size: 1.2em;
+			vertical-align: middle;
+			transition: color 0.2s ease-in-out;
+		}
+		
+        .delete-icon:hover {
+			color: var(--danger-hover-color);
+		}
+		
+        /* --- Timeline Bar & Tooltip Styles (CORRECTED) --- */
+        .timeline-bar-cell { 
+			padding: 5px;
+		}
+        
+		.timeline-bar-container {
+            width: 80%; height: 30px; background-color: #e9ecef;
+            border-radius: 3px;
+            /* overflow: hidden; Keep this commented or remove */
+            display: flex;
+            border: 1px solid var(--table-border);
+            /* NEW: Center the segments within the container */
+            justify-content: center;  /* Option 1: Center all segments */
+            align-items: center;  /* Option 1: Vertical center */
+        }
+        
+		/* --- Timeline Bar & Tooltip Styles (DEBUG SIMPLIFIED) --- */
+        .timeline-segment {
+            height: 100%; display: inline-block; background-color: gray;
+            flex-grow: 1; Remove grow if using basis/max-width */
+            flex-shrink: 0;
+            position: relative; /* Tooltip positioning */
+            flex-grow: 1; /* Allow to grow again to fill space */
+
+        }
+        .timeline-segment.online { background-color: var(--success-color); }
+        .timeline-segment.offline { background-color: var(--danger-color); }
+		.timeline-segment.online { background-color: var(--success-color); }
+        .timeline-segment.offline { background-color: var(--danger-color); }
+		
+        /* Tooltip Styles - DEBUG */
+        .timeline-segment .tooltiptext {
+            width: 140px;
+			/* max-width: 520%; /* Max width relative to segment */
+            background-color: rgba(85, 85, 85, 0.95); color: #fff; text-align: center;
+            border-radius: 6px; padding: 2px 2px; position: absolute; z-index: 10;
+			margin-left: 80px;
+            transform: translateX(-50%); /* CSS Centering */
+            opacity: 0; transition: opacity 0.3s, visibility 0s 0.3s;
+            font-size: 0.85em; pointer-events: none; visibility: hidden; white-space: normal;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+			text-wrap: auto;
+        }
+		
+        /* Show Tooltip on Hover */
+        .timeline-segment:hover .tooltiptext {
+            opacity: 1;
+            visibility: visible;
+            transition-delay: 0.1s;
+        }
+        /* --- END TIMELINE/TOOLTIP DEBUG STYLES --- */
+		
+        /* Links */
+        .nav-link { margin-top: 20px; display: block; color: var(--link-color); text-decoration: none; }
+        .nav-link:hover { text-decoration: underline; color: var(--link-hover-color); }
+		
+		/* NEW: Style for Button-like Links */
+        
+		.button-link {
+			display: inline-block; /* Make it behave like a button */
+            padding: 5px 10px;
+            font-size: 0.9em;
+            font-weight: normal; /* Reset font-weight if needed */
+            text-align: center;
+            text-decoration: none; /* Remove underline */
+            cursor: pointer;
+            /* background-color: var(--primary-color); /* Use primary blue */
+            background-color: var(--success-color);
+			color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.2s, color 0.2s;
+            margin-top: 1px; /* Add some top margin */
+		}
+		
+
+		
+        .button-link:hover {
+            background-color: { background-color: #218838; } /* Darker blue on hover */
+            color: white;
+            text-decoration: none; /* Ensure no underline on hover */
+        }
+        /* Specific style for Back button if needed, e.g., different color */
+        a.back-button {
+             background-color: var(--success-color); /* Use gray color like muted text */
+             color: white;
+        }
+         a.back-button:hover {
+             background-color: { background-color: #218838; }
+             color: white;
+        }
+		
+						/* Stile per il link nel footer */
+		.footer-link {
+			color: var(--text-muted-color); /* Usa colore testo muto */
+			text-decoration: none;
+			transition: color 0.2s;
+		}
+		.footer-link:hover {
+			color: var(--link-hover-color);
+			text-decoration: underline;
+		}
+		
+		    /* Additional style for date inputs if needed */
+        .filter-container .date-filter-label {
+            margin-left: 15px; /* Add some space before date filters */
+        }
+		
+		.filter-input[type="datetime-local"] {
+            /* Browsers might render this differently, adjust padding/size if necessary */
+             padding: 4px;
+        }
+		
+		 /* Style for the Clear All button */
+        #clear-history-button {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 5px 10px; /* Slightly smaller padding */
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+            margin-left: 20px; /* Add space from other filters */
+        }
+        #clear-history-button:hover {
+            background-color: var(--danger-hover-color);
+        }
+         #clear-history-button:disabled {
+             background-color: #ccc;
+             cursor: not-allowed;
+         }
+		 
+        /* Column Widths for History Table */
+        #history-table col:nth-child(1) { width: 45px; }  /* Delete Action */
+        #history-table col:nth-child(2) { width: 130px; } /* IP */
+        #history-table col:nth-child(3) { width: 150px; } /* Hostname */
+        #history-table col:nth-child(4) { width: auto; }   /* Timeline (fills remaining) */
+    </style>
+</head>
+<body> <!-- Theme applied by inline script -->
+    <h1>
+	<img src="{{ url_for('static', filename='logo.png') }}" alt="Scanner Logo" class="logo-icon"> MaiNetwork Scanner - Host Status History
+	</h1>
+
+     <!-- Filter Controls -->
+    <div class="filter-container">
+        <label for="filter-ip">IP Address:</label>
+        <input type="text" id="filter-ip" class="filter-input" placeholder="Filter by IP...">
+        <label for="filter-hostname">Hostname:</label>
+        <input type="text" id="filter-hostname" class="filter-input" placeholder="Filter by Hostname...">
+		<!-- CHANGED type="date" to type="datetime-local" -->
+        <label for="filter-start-date" class="date-filter-label">From:</label>
+        <input type="datetime-local" id="filter-start-date" class="filter-input">
+        <label for="filter-end-date">To:</label>
+        <input type="datetime-local" id="filter-end-date" class="filter-input">
+        <!-- END Date/Time Filters -->
+		<!-- NEW: Clear All History Button -->
+        <button id="clear-history-button" title="Delete ALL history records in Database">
+            <span class="mdi mdi-delete-sweep"></span> Clear All
+        </button>
+    </div>
+
+    <!-- Refresh Controls -->
+    <div id="controls-container">
+        <div id="last-updated">Updating...</div>
+        <div class="switch-container">
+            <label class="switch">
+                <input type="checkbox" id="auto-refresh-checkbox"> <!-- Starts unchecked -->
+                <span class="slider"></span>
+            </label>
+            <span class="switch-label" onclick="document.getElementById('auto-refresh-checkbox').click();">
+                Auto Refresh
+            </span>
+        </div>
+         <div class="refresh-interval-input-container">
+            <label for="refresh-interval-input">every</label>
+            <input type="number" id="refresh-interval-input" min="10" value="60"> <!-- Default 60s, Min 10s -->
+            <label for="refresh-interval-input">s</label>
+         </div>
+		 <div>
+			<!-- MODIFIED Link: Added class="button-link back-button" -->
+            <a href="{{ url_for('index') }}" class="button-link back-button">
+            <span class="mdi mdi-arrow-left"></span> Back to Dashboard <!-- Added icon -->
+            </a>
+		</div>
+    </div>
+
+
+    <!-- History Table -->
+    <div class="table-container">
+        <table id="history-table">
+            <colgroup>
+                <col id="history-col-action">
+                <col id="history-col-ip">
+                <col id="history-col-hostname">
+                <col id="history-col-timeline">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="action-cell-header">Del</th> <!-- Delete Header -->
+                    <th>IP Address</th>
+                    <th>Hostname</th>
+                    <th>Status Timeline (Newest Event Right)</th>
+                </tr>
+            </thead>
+            <tbody id="history-table-body">
+                <!-- Rows populated by JS -->
+                <tr><td colspan="4">Loading history...</td></tr> <!-- Colspan 4 -->
+            </tbody>
+        </table>
+    </div>
+	<br>
+	<div>
+	<!-- MODIFIED Link: Added class="button-link back-button" -->
+    <a href="{{ url_for('index') }}" class="button-link back-button">
+        <span class="mdi mdi-arrow-left"></span> Back to Dashboard <!-- Added icon -->
+    </a>
+	</div>
+    <!-- <a href="{{ url_for('index') }}" class="nav-link">← Back to Dashboard</a> -->
+
+    <!-- JS specific to this page -->
+    <script src="{{ url_for('static', filename='history.js') }}"></script>
+
+    <!-- Inline script to apply theme on load -->
+    <script>
+        function getThemeCookie(name) { const nameEQ = name + "="; const ca = document.cookie.split(';'); for(let i=0; i < ca.length; i++) { let c = ca[i]; while (c.charAt(0)==' ') c = c.substring(1,c.length); if (c.indexOf(nameEQ) == 0) { try { return decodeURIComponent(c.substring(nameEQ.length,c.length)); } catch (e) { return null; } } } return null; }
+        (function() { const themeCookieName = 'networkScannerTheme'; const currentTheme = getThemeCookie(themeCookieName) || 'light'; if (currentTheme === 'dark') { document.body.classList.add('dark-theme'); } else { document.body.classList.add('light-theme'); } })();
+    </script>
+	<footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--table-border); font-size: 0.9em; color: var(--text-muted-color);">
+    <p>
+        MaiNetwork Scanner - Developed with <span class="mdi mdi-heart" style="color: var(--danger-color); vertical-align: -2px;"></span> by byte4geek
+        |
+        <a href="https://github.com/byte4geek/mainetwork-scanner" target="_blank" rel="noopener noreferrer" class="footer-link">
+            <span class="mdi mdi-github" style="vertical-align: -3px;"></span> View on GitHub
+        </a>
+    </p>
+	</footer>
+</body>
+</html>
