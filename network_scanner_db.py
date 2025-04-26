@@ -235,21 +235,30 @@ def load_state_from_db(conn):
         if cursor: cursor.close()
     return last_db_state
 
-def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to_scan, perform_port_scan): # Unchanged logic
+# Function update_db_and_get_status (MODIFIED to use UTC for history)
+def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to_scan, perform_port_scan):
     final_report_state = OrderedDict(); updated_count, inserted_count, offline_count, port_scan_count, ping_check_count, history_count = 0, 0, 0, 0, 0, 0
     if not conn: logging.error("ERROR: Invalid DB connection for update."); return final_report_state
-    cursor = None; now_ts = datetime.now(); history_inserts = []
+    cursor = None
+    # Use UTC for the 'now' timestamp for consistent history events
+    now_ts_utc = datetime.now(timezone.utc) # Get current time in UTC
+    now_ts_for_report = datetime.now() # Use local time just for the final report dictionary (less critical)
+
+    history_inserts = []
     try:
         cursor = conn.cursor(); online_ips = set(current_scan_results.keys())
         # Process ONLINE
         for ip in online_ips:
-            data = current_scan_results[ip]; mac = data['mac']; vendor = get_vendor(mac); ports_result_str = None # Call get_vendor here
+            data = current_scan_results[ip]; mac = data['mac']; vendor = get_vendor(mac); ports_result_str = None
             if PORT_SCAN_ENABLED and perform_port_scan and ports_to_scan:
                 logging.info(f"Starting port scan for {ip} ({len(ports_to_scan)} ports)..."); ports_result_str = scan_ports_threaded(ip, ports_to_scan, PORT_SCAN_TIMEOUT, PORT_SCAN_THREADS)
                 if ports_result_str is not None: port_scan_count += 1; logging.info(f"Port scan {ip} -> '{ports_result_str or 'None Open'}'")
+
             last_state = last_db_state.get(ip)
             current_ports = ports_result_str if ports_result_str is not None else (last_state.get('ports', '') if last_state else '')
-            final_report_state[ip] = {'mac': mac, 'vendor': vendor, 'status': 'ONLINE', 'ports': current_ports or "", 'hostname': last_state.get('hostname', '') if last_state else '', 'note': last_state.get('note', '') if last_state else '', 'known_host': last_state.get('known_host', 0) if last_state else 0, 'timestamp': now_ts}
+            # Populate final report state using local time for its 'timestamp' field
+            final_report_state[ip] = {'mac': mac, 'vendor': vendor, 'status': 'ONLINE', 'ports': current_ports or "", 'hostname': last_state.get('hostname', '') if last_state else '', 'note': last_state.get('note', '') if last_state else '', 'known_host': last_state.get('known_host', 0) if last_state else 0, 'timestamp': now_ts_for_report}
+
             if last_state: # UPDATE
                 last_mac=last_state.get('mac','') or ''; last_vendor=last_state.get('vendor','') or ''; last_status=last_state.get('status','OFFLINE'); last_ports=last_state.get('ports','') or ''
                 current_ports_compare = ports_result_str if ports_result_str is not None else last_ports
@@ -257,16 +266,26 @@ def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to
                 ports_differ = (port_scan_rel and (current_ports_compare or "") != (last_ports or ""))
                 status_changed = (last_status == 'OFFLINE')
                 needs_update = (status_changed or last_mac != mac or last_vendor != vendor or ports_differ)
+
                 if needs_update:
-                    set_clauses = ["mac_address = ?", "vendor = ?", "status = 'ONLINE'", "last_seen_online = NOW()"]; params = [mac, vendor]
+                    # Update last_seen_online using the database's NOW() which *should* be UTC if configured correctly,
+                    # or at least consistent with how event_time is stored.
+                    set_clauses = ["mac_address = ?", "vendor = ?", "status = 'ONLINE'", "last_seen_online = NOW()"]
+                    params = [mac, vendor]
                     if port_scan_rel: set_clauses.append("ports = ?"); params.append(ports_result_str if ports_result_str else None);
-                    if status_changed: history_inserts.append((ip, 1, now_ts)); logging.debug(f"DB HISTORY Queued: {ip} -> ONLINE")
+                    if status_changed:
+                        # Add history event using the explicit UTC timestamp
+                        history_inserts.append((ip, 1, now_ts_utc))
+                        logging.debug(f"DB HISTORY Queued: {ip} -> ONLINE at {now_ts_utc}")
                     params.append(ip); update_query = f"UPDATE hosts SET {', '.join(set_clauses)} WHERE ip_address = ?"; cursor.execute(update_query, tuple(params)); updated_count += 1
             else: # INSERT
                 current_ports_insert = ports_result_str if (PORT_SCAN_ENABLED and perform_port_scan and ports_result_str is not None) else None
                 logging.info(f"DB INSERT: {ip} (MAC: {mac}, Ports: '{current_ports_insert or 'NULL'}')")
+                # Use DB NOW() for first_seen and last_seen_online
                 insert_query = "INSERT INTO hosts (ip_address, mac_address, vendor, ports, status, first_seen, last_seen_online) VALUES (?, ?, ?, ?, 'ONLINE', NOW(), NOW())"; cursor.execute(insert_query, (ip, mac, vendor, current_ports_insert)); inserted_count += 1
-                history_inserts.append((ip, 1, now_ts)); logging.debug(f"DB HISTORY Queued: {ip} -> ONLINE (New)")
+                # Add history event using explicit UTC timestamp
+                history_inserts.append((ip, 1, now_ts_utc)); logging.debug(f"DB HISTORY Queued: {ip} -> ONLINE (New) at {now_ts_utc}")
+
         # Process OFFLINE
         potentially_offline_ips = set(last_db_state.keys()) - online_ips
         if potentially_offline_ips: logging.info(f"{len(potentially_offline_ips)} hosts not in ARP. Pinging...");
@@ -274,17 +293,30 @@ def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to
             last_data = last_db_state[ip]
             if last_data.get('status') == 'ONLINE':
                 ping_check_count += 1; logging.debug(f"Pinging {ip}...")
-                if is_host_reachable_by_ping(ip): logging.info(f"Ping success for {ip}. Kept as ONLINE."); final_report_state[ip] = {**last_data, 'status': 'ONLINE', 'timestamp': now_ts}
-                else: logging.info(f"Ping failed for {ip}. Marking OFFLINE."); cursor.execute("UPDATE hosts SET status = 'OFFLINE' WHERE ip_address = ?", (ip,)); offline_count += 1; final_report_state[ip] = {**last_data, 'status': 'OFFLINE', 'timestamp': now_ts}; history_inserts.append((ip, 0, now_ts)); logging.debug(f"DB HISTORY Queued: {ip} -> OFFLINE")
-            else: final_report_state[ip] = {**last_data, 'timestamp': now_ts}
+                if is_host_reachable_by_ping(ip):
+                    logging.info(f"Ping success for {ip}. Kept as ONLINE.")
+                    final_report_state[ip] = {**last_data, 'status': 'ONLINE', 'timestamp': now_ts_for_report}
+                else:
+                    logging.info(f"Ping failed for {ip}. Marking OFFLINE.")
+                    cursor.execute("UPDATE hosts SET status = 'OFFLINE' WHERE ip_address = ?", (ip,)); offline_count += 1
+                    final_report_state[ip] = {**last_data, 'status': 'OFFLINE', 'timestamp': now_ts_for_report}
+                    # Add history event using explicit UTC timestamp
+                    history_inserts.append((ip, 0, now_ts_utc)); logging.debug(f"DB HISTORY Queued: {ip} -> OFFLINE at {now_ts_utc}")
+            else: # Already OFFLINE
+                final_report_state[ip] = {**last_data, 'timestamp': now_ts_for_report}
+
         # Insert History Records
         if history_inserts:
             logging.info(f"Inserting {len(history_inserts)} history records...")
             history_query = "INSERT INTO host_history (ip_address, status, event_time) VALUES (?, ?, ?)"
-            try: cursor.executemany(history_query, history_inserts); history_count = cursor.rowcount; logging.info(f"Inserted {history_count} history records.")
+            try:
+                # Pass the datetime objects directly (MariaDB connector handles conversion)
+                cursor.executemany(history_query, history_inserts)
+                history_count = cursor.rowcount; logging.info(f"Inserted {history_count} history records.")
             except mariadb.Error as hist_e: logging.error(f"ERROR: Failed to insert history: {hist_e}")
+
         # Commit
-        conn.commit(); logging.info(f"DB update complete: {inserted_count} INSERTED, {updated_count} UPDATED (Online), {offline_count} marked OFFLINE.")
+        conn.commit(); logging.info(f"\nDB update complete: {inserted_count} IN, {updated_count} UP, {offline_count} OFF.")
         if ping_check_count > 0: logging.info(f"Ping checks performed for {ping_check_count} hosts.")
         if port_scan_count > 0: logging.info(f"Port scans performed for {port_scan_count} online hosts.")
         if history_count > 0: logging.info(f"Status change history events recorded: {history_count}")
