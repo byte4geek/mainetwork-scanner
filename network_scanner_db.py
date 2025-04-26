@@ -295,17 +295,84 @@ def update_db_and_get_status(conn, current_scan_results, last_db_state, ports_to
     return final_report_state
 
 # --- History Purge Function ---
-def purge_old_history(conn, hours_to_keep): # Unchanged logic
+# --- History Purge Function (REVISED to Keep Last Event) ---
+def purge_old_history(conn, hours_to_keep):
+    """
+    Deletes records older than specified hours from host_history table,
+    BUT KEEPS the most recent record for each host.
+    """
     if not conn or hours_to_keep <= 0:
-        if hours_to_keep <= 0: logging.info("History purge disabled (PURGE_HISTORY_HOURS <= 0).")
+        if hours_to_keep <= 0:
+            logging.info("History purge disabled (PURGE_HISTORY_HOURS <= 0).")
         return
-    logging.info(f"Purging history records older than {hours_to_keep} hours...")
+
+    logging.info(f"Purging history records older than {hours_to_keep} hours (keeping latest per host)...")
     cursor = None
-    try: cutoff_date = datetime.now(timezone.utc) - timedelta(hours=hours_to_keep); cursor = conn.cursor(); purge_query = "DELETE FROM host_history WHERE event_time < ?"; cursor.execute(purge_query, (cutoff_date,)); deleted_count = cursor.rowcount; conn.commit(); logging.info(f"History purge complete. Deleted {deleted_count} old records.")
-    except mariadb.Error as e: logging.error(f"ERROR: Failed to purge history: {e}"); conn.rollback()
-    except Exception as e: logging.exception(f"ERROR: Unexpected error during history purge: {e}"); conn.rollback()
+    try:
+        # Calculate the cutoff date (using UTC for safety)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(hours=hours_to_keep)
+
+        cursor = conn.cursor()
+
+        # Step 1: Find the maximum ID for each ip_address.
+        # We use MAX(id) assuming 'id' is an auto-incrementing primary key,
+        # which reliably represents the latest entry per group.
+        # If using event_time, timezone issues could be complex if not strictly UTC.
+        find_latest_ids_query = """
+            SELECT MAX(id)
+            FROM host_history
+            GROUP BY ip_address
+        """
+        cursor.execute(find_latest_ids_query)
+        latest_ids = {row[0] for row in cursor.fetchall()} # Set of latest IDs to keep
+
+        # Step 2: Delete rows older than the cutoff date AND whose ID is NOT in the set of latest IDs.
+        # Using placeholders for safety.
+        # We need to construct the NOT IN part dynamically if the set is large,
+        # but for a reasonable number of hosts, this is okay.
+        # However, passing a large set via parameter binding can be inefficient or problematic.
+        # A JOIN approach is often better for performance and scalability.
+
+        # --- OPTION 1: Using NOT IN (Simpler but potentially slow with many hosts) ---
+        # if latest_ids:
+        #     # Create placeholders for the NOT IN clause
+        #     placeholders = ', '.join(['?'] * len(latest_ids))
+        #     purge_query = f"DELETE FROM host_history WHERE event_time < ? AND id NOT IN ({placeholders})"
+        #     params = [cutoff_date] + list(latest_ids)
+        #     cursor.execute(purge_query, tuple(params))
+        # else:
+        #     # If there are no latest IDs (empty table?), just delete old ones
+        #     purge_query = "DELETE FROM host_history WHERE event_time < ?"
+        #     cursor.execute(purge_query, (cutoff_date,))
+
+        # --- OPTION 2: Using LEFT JOIN (Generally more performant) ---
+        purge_query = """
+            DELETE hh
+            FROM host_history hh
+            LEFT JOIN (
+                SELECT MAX(id) as max_id
+                FROM host_history
+                GROUP BY ip_address
+            ) latest ON hh.id = latest.max_id
+            WHERE hh.event_time < ?
+              AND latest.max_id IS NULL -- Delete only if it's NOT the latest record for its IP
+        """
+        cursor.execute(purge_query, (cutoff_date,))
+        # --- END OPTION 2 ---
+
+        deleted_count = cursor.rowcount
+        conn.commit() # Commit the deletion
+        logging.info(f"History purge complete. Deleted {deleted_count} old records (latest per host retained).")
+
+    except mariadb.Error as e:
+        logging.error(f"ERROR: Failed to purge history: {e}")
+        if conn: conn.rollback() # Rollback on error
+    except Exception as e:
+        logging.exception(f"ERROR: Unexpected error during history purge: {e}")
+        if conn: conn.rollback()
     finally:
-        if cursor: cursor.close()
+        if cursor:
+            cursor.close()
 
 # --- Console Output Function ---
 def print_results(final_state): # Unchanged logic
