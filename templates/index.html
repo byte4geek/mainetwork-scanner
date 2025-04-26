@@ -209,7 +209,13 @@
 			color: var(--link-hover-color);
 			text-decoration: underline;
 		}
-
+	/* NEW: Style for hostname placeholder text */
+        .hostname-placeholder {
+            color: var(--text-muted-color); /* Use the muted text color */
+            opacity: 0.4; /* Make it slightly transparent */
+            font-style: italic;
+        }
+	    
         #hosts-table th:last-child .resizer, #filter-row th .resizer { display: none; }
         /* Column Visibility Controls */
         #column-toggle-container { margin-top: 10px; padding: 10px; background-color: var(--header-bg); border: 1px solid var(--table-border); border-radius: 5px; font-size: 0.9em; transition: background-color 0.3s, border-color 0.3s; }
