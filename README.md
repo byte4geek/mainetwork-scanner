@@ -21,7 +21,7 @@ This project provides a Python-based network scanner that identifies hosts on a 
     *   Tracks first seen, last seen online, and last update times.
 *   **Web Interface:**
     *   Dynamic dashboard built with Flask, served by Gunicorn and Nginx.
-    *   Displays hosts from the database in a sortable, filterable table.
+    *   Displays hosts from the database in a filterable table.
     *   Client-side filtering for all columns.
     *   Resizable columns with width preferences saved in a cookie.
     *   Toggle hosts as "Known" (Yes/No) directly from the UI (updates DB).
