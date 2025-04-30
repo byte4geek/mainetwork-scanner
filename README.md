@@ -23,7 +23,7 @@ This project provides a Python-based network scanner that identifies hosts on a 
     *   Dynamic dashboard built with Flask, served by Gunicorn and Nginx.
     *   Displays hosts from the database in a filterable table.
     *   Client-side filtering for all columns.
-    *   Resizable columns with width preferences saved in a cookie.
+    *   Hide/show columns, resizable columns with width preferences saved in a cookie.
     *   Toggle hosts as "Known" (Yes/No) directly from the UI (updates DB).
     *   Delete host entries directly from the UI (updates DB).
     *   Edit "Hostname" and "Note" fields directly in the table (updates DB).
